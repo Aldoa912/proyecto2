@@ -22,25 +22,27 @@
 // #pragma config statements should precede project file includes.
 // Use project enums instead of #define for ON and OFF.
 
-#include <xc.h>
 #include <stdint.h>
+#include <xc.h>
 
 #define _XTAL_FREQ 500000      // Frecuencia interna del PIC
-#define tmr0_value 241         // tiempo con el que se cargara el timer 0
-long map(long x, long in_min, long in_max, long out_min, long out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
+#define tmr0_value 250         // tiempo con el que se cargara el timer 0
+
 int ADC;
 int serv;
 int ADC2;
 int ADC3;
+int ADC4;
 int cuenta;
 void setup(void);
 void setupINTOSC(void);
 void setupADC(void);
 void setupPWM(void);
-void servo(int valor);
+void servo(int valor); 
 
+long map (long A, long min, long max, long s_min, long s_max) {
+  return ( A - min) * (s_max - s_min) / (max - min) + s_min;
+}
 
 void __interrupt() isr (void){
     if(INTCONbits.T0IF){        //Se revisa la bandera del timer0
@@ -58,7 +60,7 @@ void __interrupt() isr (void){
     }
     
     if (PIR1bits.ADIF){         // se revisa la bandera del ADC
-        PORTCbits.RC0 = 1;      // si esta encendida se enciende el puerto
+        PORTCbits.RC3 = 1;      // si esta encendida se enciende el puerto
         PIR1bits.ADIF = 0;      // se apaga la bandera
     }
 }
@@ -73,7 +75,7 @@ void main(void) {
     setupADC();
     while(1){
 //******************************************************************************
-// ADC
+// ADC - canal 0
 //******************************************************************************
         ADCON0bits.CHS = 0b0000;        // usamos el canal 0
         __delay_us(100);
@@ -86,7 +88,9 @@ void main(void) {
         servo (ADC);        // llamo a la funcion e ingreso el valor de ADC
             CCPR1L = serv;  // cargo el valor de la conversion a CCPR1L
             __delay_us(100);
-            
+//******************************************************************************
+// canal 1
+//******************************************************************************
         ADCON0bits.CHS = 0b0001; // usamos el canal 1
         __delay_us(100);
         ADCON0bits.GO = 1;  // enciendo la bandera
@@ -98,7 +102,9 @@ void main(void) {
         servo (ADC2);       // llamo a la funcion e ingreso el valor de ADC2
             CCPR2L = serv;  // cargo el valor de la conversion a CCPR2L
             __delay_us(100);
-            
+//******************************************************************************
+// canal 2
+//******************************************************************************    
         ADCON0bits.CHS = 0b0010;    // usamos el canal 2
         __delay_us(100);    // cargo el valor a ADC3
         ADCON0bits.GO = 1;  // enciendo la bandera
@@ -107,6 +113,7 @@ void main(void) {
         }
         ADIF = 0;           // apago la bandera
         ADC3 = ADRESH;
+        //map ();
         
     }
     return;
@@ -126,8 +133,8 @@ void setup(void){
     PORTC = 0;
     PORTD = 0;
     cuenta = 0;
-    TRISCbits.TRISC3 = 0;       // inicializo todos los puertos
-    TRISCbits.TRISC4 = 0;       // inicializo todos los puertos
+    TRISCbits.TRISC3 = 1;       // inicializo todos los puertos
+    TRISCbits.TRISC4 = 1;       // inicializo todos los puertos
 }
 //******************************************************************************
 // FunciÃ³n para configurar PWM
@@ -161,6 +168,9 @@ void setupADC(void){
     
     TRISAbits.TRISA2 = 1;
     ANSELbits.ANS2 = 1; 
+    
+    TRISAbits.TRISA3 = 1;
+    ANSELbits.ANS3 = 1; 
     
     // Paso 2 Configurar mÃ³dulo ADC
     
