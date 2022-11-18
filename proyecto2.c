@@ -44,11 +44,11 @@ void __interrupt() isr (void){
     if(INTCONbits.T0IF){        //Se revisa la bandera del timer0
         cuenta++;               // cada vez se aumenta la variable cuenta
         if(cuenta <= ADC3){
-            PORTCbits.RC3 = 1;  // cuando cuenta sea mayor que ADC3 se enciente
+            PORTDbits.RD0 = 1;  // cuando cuenta sea mayor que ADC3 se enciente
                                 // la led
         }
         else{
-            PORTCbits.RC3 = 0;  // de lo contrario se apaga
+            PORTDbits.RD0 = 0;  // de lo contrario se apaga
         }
         TMR0 = tmr0_value;
         INTCONbits.T0IF = 0;    // se apaga la bandera y se carga de nuevo el
@@ -56,7 +56,7 @@ void __interrupt() isr (void){
     }
     
     if (PIR1bits.ADIF){         // se revisa la bandera del ADC
-        PORTCbits.RC3 = 1;      // si esta encendida se enciende el puerto
+        PORTDbits.RD0 = 1;      // si esta encendida se enciende el puerto
         PIR1bits.ADIF = 0;      // se apaga la bandera
     }
 }
@@ -117,14 +117,31 @@ void servo(int valor){
 //******************************************************************************
 // FunciÃ³n para configurar GPIOs
 //******************************************************************************
-void setup(void){
+void setup (void){
+    ANSEL = 0;
     ANSELH = 0;
-    TRISB = 0;
+    
+    TRISB = 0b01111111;
     PORTB = 0;
+    
+    TRISA = 0;
+    TRISC = 0;
+    TRISD = 0;
+    
+    PORTA = 0;
     PORTC = 0;
     PORTD = 0;
-    cuenta = 0;
-    TRISCbits.TRISC3 = 0;       // inicializo todos los puertos
+    
+    OPTION_REGbits.nRBPU = 0;
+    
+    IOCB = 0b01111111;
+    
+    INTCONbits.RBIF = 0;
+    INTCONbits.RBIE = 1;
+    INTCONbits.GIE = 1;
+
+   
+    
 }
 //******************************************************************************
 // FunciÃ³n para configurar PWM
