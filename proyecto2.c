@@ -28,37 +28,81 @@
 #define _XTAL_FREQ 500000      // Frecuencia interna del PIC
 #define tmr0_value 241         // tiempo con el que se cargara el timer 0
 
+int serv1;
+int serv2;
+int serv3;
+int serv4;
 int ADC;
-int serv;
 int ADC2;
 int ADC3;
 int cuenta;
+uint8_t address = 0, cont = 0, cont_sleep = 0,data;
 void setup(void);
 void setupINTOSC(void);
 void setupADC(void);
 void setupPWM(void);
-void servo(int valor);
+void servo1(int valor);
+void servo2(int valor);
 
 
-void __interrupt() isr (void){
+
+
+
+uint8_t read_EEPROM(uint8_t address);
+void write_EEPROM(uint8_t address, uint8_t data);
+
+//interrupciones
+
+void __interrupt () isr (void){
     if(INTCONbits.T0IF){        //Se revisa la bandera del timer0
         cuenta++;               // cada vez se aumenta la variable cuenta
         if(cuenta <= ADC3){
-            PORTDbits.RD0 = 1;  // cuando cuenta sea mayor que ADC3 se enciente
+            PORTDbits.RD6 = 1;  // cuando cuenta sea mayor que ADC3 se enciente
                                 // la led
         }
         else{
-            PORTDbits.RD0 = 0;  // de lo contrario se apaga
+            PORTDbits.RD6 = 0;  // de lo contrario se apaga
         }
         TMR0 = tmr0_value;
         INTCONbits.T0IF = 0;    // se apaga la bandera y se carga de nuevo el
                                 // valor al timer
     }
     
-    if (PIR1bits.ADIF){         // se revisa la bandera del ADC
-        PORTDbits.RD0 = 1;      // si esta encendida se enciende el puerto
-        PIR1bits.ADIF = 0;      // se apaga la bandera
+    if (INTCONbits.RBIF){
+        if (PORTBbits.RB0 == 0){
+            cont++;
+        }
+        
+        if (PORTBbits.RB1 == 0){
+            address = address + 4;
+        }
+        
+        else if (PORTBbits.RB2 == 0)
+            address = address - 4;
+        
+        else if (PORTBbits.RB3 == 0){
+            write_EEPROM(address, serv1);
+            write_EEPROM(address + 1, serv2);
+            write_EEPROM(address + 2, serv3);
+            write_EEPROM(address + 3, serv4);
+        }
+        
+        else if (cont == 1){
+            if (PORTBbits.RB4 == 0){
+                serv1 = read_EEPROM(address);
+                serv2 = read_EEPROM(address+1);
+            }
+            else if (PORTBbits.RB1 == 0){
+                address = address + 4;
+            }
+
+            else if (PORTBbits.RB2 == 0)
+                address = address - 4;
+        }
+
+        INTCONbits.RBIF = 0;
     }
+    return;
 }
 //******************************************************************************
 // CÃ³digo Principal
@@ -73,55 +117,71 @@ void main(void) {
 //******************************************************************************
 // ADC
 //******************************************************************************
-        ADCON0bits.CHS = 0b0000;        // usamos el canal 0
-        __delay_us(100);
-        ADCON0bits.GO = 1;  // enciendo la bandera
-        while(ADCON0bits.GO == 1){
-            ;
-        }
-        ADIF = 0;           // apago la bandera
-        ADC = ADRESH;       // cargo el valor a ADC
-        servo (ADC);        // llamo a la funcion e ingreso el valor de ADC
-            CCPR1L = serv;  // cargo el valor de la conversion a CCPR1L
+        if (cont == 0){
+            PORTDbits.RD0 = 1;
+            PORTDbits.RD1 = 0;
+            PORTDbits.RD2 = 0;
+            ADCON0bits.CHS = 0b0000;        // usamos el canal 0
             __delay_us(100);
-            
-        ADCON0bits.CHS = 0b0001; // usamos el canal 1
-        __delay_us(100);
-        ADCON0bits.GO = 1;  // enciendo la bandera
-        while(ADCON0bits.GO == 1){
-            ;
-        }
-        ADIF = 0;           // apago la bandera
-        ADC2 = ADRESH;      // cargo el valor a ADC2
-        servo (ADC2);       // llamo a la funcion e ingreso el valor de ADC2
-            CCPR2L = serv;  // cargo el valor de la conversion a CCPR2L
+            ADCON0bits.GO = 1;  // enciendo la bandera
+            while(ADCON0bits.GO == 1){
+                ;
+            }
+            ADIF = 0;           // apago la bandera
+            ADC = ADRESH;       // cargo el valor a ADC
+            servo1 (ADC);        // llamo a la funcion e ingreso el valor de ADC
+                CCPR1L = serv1;  // cargo el valor de la conversion a CCPR1L
+                __delay_us(100);
+
+            ADCON0bits.CHS = 0b0001; // usamos el canal 1
             __delay_us(100);
-            
-        ADCON0bits.CHS = 0b0010;    // usamos el canal 2
-        __delay_us(100);    // cargo el valor a ADC3
-        ADCON0bits.GO = 1;  // enciendo la bandera
-        while(ADCON0bits.GO == 1){
-            ;
+            ADCON0bits.GO = 1;  // enciendo la bandera
+            while(ADCON0bits.GO == 1){
+                ;
+            }
+            ADIF = 0;           // apago la bandera
+            ADC2 = ADRESH;      // cargo el valor a ADC2
+            servo2 (ADC2);       // llamo a la funcion e ingreso el valor de ADC2
+                CCPR2L = serv2;  // cargo el valor de la conversion a CCPR2L
+                __delay_us(100);
+
+            ADCON0bits.CHS = 0b0010;    // usamos el canal 2
+            __delay_us(100);    // cargo el valor a ADC3
+            ADCON0bits.GO = 1;  // enciendo la bandera
+            while(ADCON0bits.GO == 1){
+                ;
+            }
+            ADIF = 0;           // apago la bandera
+            ADC3 = ADRESH;
         }
-        ADIF = 0;           // apago la bandera
-        ADC3 = ADRESH;
-        
+        if (cont == 1){
+            PORTDbits.RD0 = 0;
+            PORTDbits.RD1 = 1;
+            PORTDbits.RD2 = 0;
+            CCPR2L = serv2;
+            CCPR1L = serv1;
+            
+        }
     }
     return;
 }
+//******************************************************************************
+void servo1(int valor){
+    serv1 = (unsigned short) (7+( (float)(13)/(255) ) * (valor-0));
+    // realizo la conversion para el servomotor
+}
 
-void servo(int valor){
-    serv = (unsigned short) (7+( (float)(13)/(255) ) * (valor-0));
+void servo2(int valor){
+    serv2 = (unsigned short) (7+( (float)(13)/(255) ) * (valor-0));
     // realizo la conversion para el servomotor
 }
 //******************************************************************************
 // FunciÃ³n para configurar GPIOs
 //******************************************************************************
 void setup (void){
-    ANSEL = 0;
     ANSELH = 0;
     
-    TRISB = 0b01111111;
+    TRISB = 0b00011111;
     PORTB = 0;
     
     TRISA = 0;
@@ -131,11 +191,13 @@ void setup (void){
     PORTA = 0;
     PORTC = 0;
     PORTD = 0;
+    cuenta = 0;
     
     OPTION_REGbits.nRBPU = 0;
     
     IOCB = 0b01111111;
     
+
     INTCONbits.RBIF = 0;
     INTCONbits.RBIE = 1;
     INTCONbits.GIE = 1;
@@ -234,4 +296,32 @@ void setupPWM(void){
     }
     TRISCbits.TRISC2=0;             //Habilitamos la salida del PWM.
     TRISCbits.TRISC1=0;             //Habilitamos la salida del PWM.
+}
+
+uint8_t read_EEPROM (uint8_t address){
+    while (WR||RD);
+    
+    EEADR = address;
+    EECON1bits.EEPGD = 0;
+    EECON1bits.RD = 1;
+    return EEDAT;
+    
+}
+
+void write_EEPROM(uint8_t address, uint8_t data){
+    uint8_t gieStatus;
+    while (WR);
+    
+    EEADR = address;
+    EEDAT = data;
+    EECON1bits.EEPGD = 0;
+    EECON1bits.WREN = 1;
+    gieStatus = GIE;
+    INTCONbits.GIE = 0;
+    EECON2 = 0x55;
+    EECON2 = 0xAA;
+    EECON1bits.WR = 1;
+    EECON1bits. WREN = 0;
+    
+    INTCONbits.GIE = gieStatus;
 }
