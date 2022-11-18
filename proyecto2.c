@@ -180,6 +180,16 @@ void main(void) {
             CCPR1L = serv1;
             
         }
+        
+        if (cont == 2){
+            PORTDbits.RD0 = 0;
+            PORTDbits.RD1 = 0;
+            PORTDbits.RD2 = 1;  
+        }
+        
+        if (cont == 3){
+            cont = 0;
+        }
     }
     return;
 }
