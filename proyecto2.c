@@ -24,26 +24,29 @@
 // Use project enums instead of #define for ON and OFF.
 
 #include <xc.h>
+#include <stdint.h>
 
 #define _XTAL_FREQ 500000      // Frecuencia interna del PIC
-#define tmr0_value 241         // tiempo con el que se cargara el timer 0
+#define tmr0_value 100         // tiempo con el que se cargara el timer 0
 
-int serv1;
-int serv2;
-int serv3;
-int serv4;
-int ADC;
-int ADC2;
-int ADC3;
+unsigned int serv1;
+unsigned int serv2;
+unsigned int serv3;
+unsigned int serv4;
+unsigned int ADC;
+unsigned int ADC2;
+unsigned int ADC3;
+unsigned int ADC4;
 int cuenta;
 uint8_t address = 0, cont = 0, cont_sleep = 0,data;
 void setup(void);
 void setupINTOSC(void);
 void setupADC(void);
 void setupPWM(void);
+void delay (unsigned int seg);
 void servo1(int valor);
 void servo2(int valor);
-
+unsigned int map(uint8_t ADC, int entrada_min, int entrada_max, int salida_min, int salida_max);
 
 
 
@@ -55,17 +58,15 @@ void write_EEPROM(uint8_t address, uint8_t data);
 
 void __interrupt () isr (void){
     if(INTCONbits.T0IF){        //Se revisa la bandera del timer0
-        cuenta++;               // cada vez se aumenta la variable cuenta
-        if(cuenta <= ADC3){
-            PORTDbits.RD6 = 1;  // cuando cuenta sea mayor que ADC3 se enciente
-                                // la led
-        }
-        else{
-            PORTDbits.RD6 = 0;  // de lo contrario se apaga
-        }
-        TMR0 = tmr0_value;
-        INTCONbits.T0IF = 0;    // se apaga la bandera y se carga de nuevo el
-                                // valor al timer
+        INTCONbits.T0IF = 0; // limpiar bandera
+        TMR0 = tmr0_value; //asignar valor al timer0
+        
+        PORTCbits.RC3 = 1; 
+        delay (serv3);
+        PORTCbits.RC3 = 0; 
+        PORTCbits.RC4 = 1; 
+        delay (serv4);
+        PORTCbits.RC4 = 0; //apagar
     }
     
     if (INTCONbits.RBIF){
@@ -91,6 +92,8 @@ void __interrupt () isr (void){
             if (PORTBbits.RB4 == 0){
                 serv1 = read_EEPROM(address);
                 serv2 = read_EEPROM(address+1);
+                serv3 = read_EEPROM(address+2);
+                serv4 = read_EEPROM(address+3);
             }
             else if (PORTBbits.RB1 == 0){
                 address = address + 4;
@@ -130,8 +133,8 @@ void main(void) {
             ADIF = 0;           // apago la bandera
             ADC = ADRESH;       // cargo el valor a ADC
             servo1 (ADC);        // llamo a la funcion e ingreso el valor de ADC
-                CCPR1L = serv1;  // cargo el valor de la conversion a CCPR1L
-                __delay_us(100);
+            CCPR1L = serv1;  // cargo el valor de la conversion a CCPR1L
+            __delay_us(100);
 
             ADCON0bits.CHS = 0b0001; // usamos el canal 1
             __delay_us(100);
@@ -153,7 +156,22 @@ void main(void) {
             }
             ADIF = 0;           // apago la bandera
             ADC3 = ADRESH;
+            serv3 = map(ADC3, 0, 255, 5, 17);
+            __delay_us(100);  
+            
+            ADCON0bits.CHS = 0b0011;    // usamos el canal 2
+            __delay_us(100);    // cargo el valor a ADC3
+            ADCON0bits.GO = 1;  // enciendo la bandera
+            while(ADCON0bits.GO == 1){
+                ;
+            }
+            ADIF = 0;           // apago la bandera
+            ADC4 = ADRESH;
+            serv4 = map(ADC4, 0, 255, 5, 17);
+            __delay_us(100);  
         }
+        
+        
         if (cont == 1){
             PORTDbits.RD0 = 0;
             PORTDbits.RD1 = 1;
@@ -211,11 +229,11 @@ void setup (void){
 void setupINTOSC(void){
     OSCCONbits.IRCF = 0b011;       // 500 KHz
     OSCCONbits.SCS = 1;
-    INTCONbits.GIE = 1;             
+    //INTCONbits.GIE = 1;             
     INTCONbits.TMR0IE = 1;          // activo la interrupcion del timer0
     INTCONbits.T0IF = 0;            // apago la bandera del timer0
-    PIE1bits.ADIE = 1;              // activo la interrupcion del ADC
-    PIR1bits.ADIF = 0;              // apago la bandera
+//    PIE1bits.ADIE = 1;              // activo la interrupcion del ADC
+//    PIR1bits.ADIF = 0;              // apago la bandera
     
     OPTION_REGbits.T0CS = 0;
     OPTION_REGbits.PSA = 0;
@@ -237,6 +255,9 @@ void setupADC(void){
     
     TRISAbits.TRISA2 = 1;
     ANSELbits.ANS2 = 1; 
+    
+    TRISAbits.TRISA3 = 1;
+    ANSELbits.ANS3 = 1; 
     
     // Paso 2 Configurar mÃ³dulo ADC
     
@@ -324,4 +345,15 @@ void write_EEPROM(uint8_t address, uint8_t data){
     EECON1bits. WREN = 0;
     
     INTCONbits.GIE = gieStatus;
+}
+unsigned int map (uint8_t ADC, int entrada_min, int entrada_max, int salida_min, int salida_max){
+    return ((ADC - entrada_min)*(salida_max-salida_min)) / ((entrada_max-entrada_min)+salida_min);
+}
+
+void delay (unsigned int seg){
+    while (seg > 0){
+        __delay_us(50);
+        seg--;
+    }
+    return;
 }
