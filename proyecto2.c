@@ -27,8 +27,11 @@
 #include <stdint.h>
 
 #define _XTAL_FREQ 500000      // Frecuencia interna del PIC
-#define tmr0_value 100         // tiempo con el que se cargara el timer 0
+#define tmr0_value 102         // valor del timer0
 
+//******************************************************************************
+// Declaracion de variables
+//******************************************************************************
 unsigned int serv1;
 unsigned int serv2;
 unsigned int serv3;
@@ -39,6 +42,9 @@ unsigned int ADC3;
 unsigned int ADC4;
 int cuenta;
 uint8_t address = 0, cont = 0, cont_sleep = 0,data;
+//******************************************************************************
+//Prototipos de funciones
+//******************************************************************************
 void setup(void);
 void setupINTOSC(void);
 void setupADC(void);
@@ -46,54 +52,60 @@ void setupPWM(void);
 void delay (unsigned int seg);
 void servo1(int valor);
 void servo2(int valor);
-unsigned int map(uint8_t ADC, int entrada_min, int entrada_max, int salida_min, int salida_max);
-
-
-
-
+unsigned int map(uint8_t ADC, int entrada_min, int entrada_max, int salida_min, 
+        int salida_max);
 uint8_t read_EEPROM(uint8_t address);
 void write_EEPROM(uint8_t address, uint8_t data);
-
-//interrupciones
+//******************************************************************************
+// Interrupciones
+//******************************************************************************
 
 void __interrupt () isr (void){
     if(INTCONbits.T0IF){        //Se revisa la bandera del timer0
-        INTCONbits.T0IF = 0; // limpiar bandera
-        TMR0 = tmr0_value; //asignar valor al timer0
-        
-        PORTCbits.RC3 = 1; 
-        delay (serv3);
-        PORTCbits.RC3 = 0; 
+        TMR0 = tmr0_value; // se asigna el valor del timer0
+        PORTCbits.RC3 = 1; // se enciende el puerto
+        delay (serv3);      // nos dirigimos a la funcion de delay
+        PORTCbits.RC3 = 0;  // despues de que pase el delay se apaga el puerto
         PORTCbits.RC4 = 1; 
         delay (serv4);
-        PORTCbits.RC4 = 0; //apagar
+        PORTCbits.RC4 = 0; // Se repite lo mismo, solo que con otro puerto
+        INTCONbits.T0IF = 0; // se limpia la bandera
     }
     
     if (INTCONbits.RBIF){
         if (PORTBbits.RB0 == 0){
-            cont++;
+            cont++;         // si se presiona RB0, se aumenta la variable cont
         }
         
         if (PORTBbits.RB1 == 0){
-            address = address + 4;
+            address = address + 4;  //Si se presiona RB1, se aumenta el address
+                                    // en cuatro
         }
         
         else if (PORTBbits.RB2 == 0)
-            address = address - 4;
+            address = address - 4;  //Si se presiona RB2, se disminuye el 
+                                    //address en 4
         
         else if (PORTBbits.RB3 == 0){
             write_EEPROM(address, serv1);
             write_EEPROM(address + 1, serv2);
             write_EEPROM(address + 2, serv3);
             write_EEPROM(address + 3, serv4);
+            // si se presiona RB3 se guardara el valor de las variables serv1
+            //serv2, serv3 y serv4 en el valor de address que este y los tres
+            //espacios que esten debajdo de este
         }
         
-        else if (cont == 1){
+        else if (cont == 1){ //Si la variable cont es = 1, se podran leer
+                             // los datos que se tengan en la eeprom
             if (PORTBbits.RB4 == 0){
                 serv1 = read_EEPROM(address);
                 serv2 = read_EEPROM(address+1);
                 serv3 = read_EEPROM(address+2);
                 serv4 = read_EEPROM(address+3);
+                // si se presiona RB4 se escribira el valor que este en la 
+                //direccion dada por el adrress y las 3 posiciones debajo de 
+                // esta en serv, serv2, serv3 y serv4
             }
             else if (PORTBbits.RB1 == 0){
                 address = address + 4;
@@ -103,7 +115,7 @@ void __interrupt () isr (void){
                 address = address - 4;
         }
 
-        INTCONbits.RBIF = 0;
+        INTCONbits.RBIF = 0; // se apaga la bandera
     }
     return;
 }
@@ -123,7 +135,7 @@ void main(void) {
         if (cont == 0){
             PORTDbits.RD0 = 1;
             PORTDbits.RD1 = 0;
-            PORTDbits.RD2 = 0;
+            PORTDbits.RD2 = 0;   // se enciende la led que indica el modo 1
             ADCON0bits.CHS = 0b0000;        // usamos el canal 0
             __delay_us(100);
             ADCON0bits.GO = 1;  // enciendo la bandera
@@ -149,30 +161,31 @@ void main(void) {
                 __delay_us(100);
 
             ADCON0bits.CHS = 0b0010;    // usamos el canal 2
-            __delay_us(100);    // cargo el valor a ADC3
+            __delay_us(100);    
             ADCON0bits.GO = 1;  // enciendo la bandera
             while(ADCON0bits.GO == 1){
                 ;
             }
             ADIF = 0;           // apago la bandera
-            ADC3 = ADRESH;
-            serv3 = map(ADC3, 0, 255, 5, 17);
+            ADC3 = ADRESH;      // cargo el valor a ADC3
+            serv3 = map(ADC3, 0, 255, 5, 17);   // hago la conversion del ADC
             __delay_us(100);  
             
-            ADCON0bits.CHS = 0b0011;    // usamos el canal 2
-            __delay_us(100);    // cargo el valor a ADC3
+            ADCON0bits.CHS = 0b0011;    // usamos el canal 3
+            __delay_us(100);    // 
             ADCON0bits.GO = 1;  // enciendo la bandera
             while(ADCON0bits.GO == 1){
                 ;
             }
             ADIF = 0;           // apago la bandera
-            ADC4 = ADRESH;
-            serv4 = map(ADC4, 0, 255, 5, 17);
+            ADC4 = ADRESH;      // cargo el valor a ADC4
+            serv4 = map(ADC4, 0, 255, 5, 17); // hago la conversion del ADC
             __delay_us(100);  
         }
         
         
-        if (cont == 1){
+        if (cont == 1){ // si mi variable cont == 1, ya no podre leer los 
+                        // ADC
             PORTDbits.RD0 = 0;
             PORTDbits.RD1 = 1;
             PORTDbits.RD2 = 0;
@@ -187,7 +200,7 @@ void main(void) {
             PORTDbits.RD2 = 1;  
         }
         
-        if (cont == 3){
+        if (cont == 3){ // Si la variable cont = 3 esta se reinicia
             cont = 0;
         }
     }
@@ -221,14 +234,14 @@ void setup (void){
     PORTD = 0;
     cuenta = 0;
     
-    OPTION_REGbits.nRBPU = 0;
+    OPTION_REGbits.nRBPU = 0;   // se apaga el bi nRBPU
     
     IOCB = 0b01111111;
     
 
     INTCONbits.RBIF = 0;
-    INTCONbits.RBIE = 1;
-    INTCONbits.GIE = 1;
+    INTCONbits.RBIE = 1;        // se enciente la interrupcion del puesto B
+    INTCONbits.GIE = 1;         // habilitamos las interrupciones globales
 
    
     
@@ -238,15 +251,13 @@ void setup (void){
 //******************************************************************************
 void setupINTOSC(void){
     OSCCONbits.IRCF = 0b011;       // 500 KHz
-    OSCCONbits.SCS = 1;
-    //INTCONbits.GIE = 1;             
+    OSCCONbits.SCS = 1;           
     INTCONbits.TMR0IE = 1;          // activo la interrupcion del timer0
     INTCONbits.T0IF = 0;            // apago la bandera del timer0
-//    PIE1bits.ADIE = 1;              // activo la interrupcion del ADC
-//    PIR1bits.ADIF = 0;              // apago la bandera
+
     
-    OPTION_REGbits.T0CS = 0;
-    OPTION_REGbits.PSA = 0;
+    OPTION_REGbits.T0CS = 0;        // se selecciona el oscilador interno
+    OPTION_REGbits.PSA = 0;         // se escoge el prescaler del timer 0
     OPTION_REGbits.PS = 0b011;
     
     TMR0 = tmr0_value;
@@ -358,9 +369,10 @@ void write_EEPROM(uint8_t address, uint8_t data){
 }
 unsigned int map (uint8_t ADC, int entrada_min, int entrada_max, int salida_min, int salida_max){
     return ((ADC - entrada_min)*(salida_max-salida_min)) / ((entrada_max-entrada_min)+salida_min);
+    // se convierten los valores del adc para que el servo pueda leerlos
 }
 
-void delay (unsigned int seg){
+void delay (unsigned int seg){ // se hace un delay para el pulso
     while (seg > 0){
         __delay_us(50);
         seg--;
